@@ -123,7 +123,7 @@ char* create_vrt_xml(const char *source_path, GDALDatasetH source_ds, BoundingBo
     return xml;
 }
 
-GDALDatasetH create_vrt_from_xml(const char *source_path, GDALDatasetH source_ds, BoundingBox *bbox) {
+GDALDatasetH create_vrt_api(const char *source_path, GDALDatasetH source_ds, BoundingBox *bbox) {
     double adfGeoTransform[6];
     GDALGetGeoTransform(source_ds, adfGeoTransform);
     
@@ -144,31 +144,32 @@ GDALDatasetH create_vrt_from_xml(const char *source_path, GDALDatasetH source_ds
     GDALRasterBandH source_band = GDALGetRasterBand(source_ds, 1);
     GDALDataType datatype = GDALGetRasterDataType(source_band);
     
-    // Create VRT XML and open it
-    char vrt_xml[VRT_XML_BUFFER_SIZE];
-    const char *datatype_name = GDALGetDataTypeName(datatype);
+    // Create VRT dataset using VRT API
+    GDALDatasetH vrt_ds = VRTCreate(width, height);
+    if (!vrt_ds) {
+        return NULL;
+    }
     
-    snprintf(vrt_xml, VRT_XML_BUFFER_SIZE,
-        "<VRTDataset rasterXSize=\"%d\" rasterYSize=\"%d\">\n"
-        "  <GeoTransform>%.15f, %.15f, %.15f, %.15f, %.15f, %.15f</GeoTransform>\n"
-        "  <VRTRasterBand dataType=\"%s\" band=\"1\">\n"
-        "    <SimpleSource>\n"
-        "      <SourceFilename relativeToVRT=\"0\">%s</SourceFilename>\n"
-        "      <SourceBand>1</SourceBand>\n"
-        "      <SrcRect xOff=\"%d\" yOff=\"%d\" xSize=\"%d\" ySize=\"%d\"/>\n"
-        "      <DstRect xOff=\"0\" yOff=\"0\" xSize=\"%d\" ySize=\"%d\"/>\n"
-        "    </SimpleSource>\n"
-        "  </VRTRasterBand>\n"
-        "</VRTDataset>\n",
-        width, height,
-        new_geo_x, adfGeoTransform[1], adfGeoTransform[2],
-        new_geo_y, adfGeoTransform[4], adfGeoTransform[5],
-        datatype_name,
-        source_path,
-        xmin_pix, ymin_pix, width, height,
-        width, height);
+    // Set geotransform
+    double new_transform[6] = {new_geo_x, adfGeoTransform[1], adfGeoTransform[2],
+                                new_geo_y, adfGeoTransform[4], adfGeoTransform[5]};
+    GDALSetGeoTransform(vrt_ds, new_transform);
     
-    GDALDatasetH vrt_ds = GDALOpen(vrt_xml, GA_ReadOnly);
+    // Add band
+    GDALAddBand(vrt_ds, datatype, NULL);
+    
+    // Get the VRT band
+    GDALRasterBandH vrt_band = GDALGetRasterBand(vrt_ds, 1);
+    
+    // Add simple source
+    VRTAddSimpleSource((VRTSourcedRasterBandH)vrt_band,
+                       source_band,
+                       xmin_pix, ymin_pix, width, height,
+                       0, 0, width, height,
+                       NULL, VRT_NODATA_UNSET);
+    
+    // Flush cache to finalize the VRT
+    VRTFlushCache(vrt_ds);
     
     return vrt_ds;
 }
@@ -304,7 +305,7 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "Error: Failed to open source dataset '%s'\n", path);
                     return 1;
                 }
-                GDALDatasetH vrt_ds = create_vrt_from_xml(path, source_ds, &bbox);
+                GDALDatasetH vrt_ds = create_vrt_api(path, source_ds, &bbox);
                 if (!vrt_ds) {
                     fprintf(stderr, "Error: Failed to create VRT dataset\n");
                     GDALClose(source_ds);
@@ -344,7 +345,7 @@ int main(int argc, char *argv[]) {
                         return 1;
                     }
                 }
-                GDALDatasetH vrt_ds = create_vrt_from_xml(path, reused_vrt_source, &bbox);
+                GDALDatasetH vrt_ds = create_vrt_api(path, reused_vrt_source, &bbox);
                 if (!vrt_ds) {
                     fprintf(stderr, "Error: Failed to create VRT dataset\n");
                     GDALClose(reused_vrt_source);
