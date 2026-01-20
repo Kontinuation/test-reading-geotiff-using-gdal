@@ -63,18 +63,30 @@ int parse_bbox(const char *bbox_str, BoundingBox *bbox) {
 
 void geo_to_pixel(GDALDatasetH dataset, double geo_x, double geo_y, int *pixel_x, int *pixel_y) {
     double adfGeoTransform[6];
-    GDALGetGeoTransform(dataset, adfGeoTransform);
+    double adfInvGeoTransform[6];
     
-    // Inverse transform from geo to pixel
-    double denom = adfGeoTransform[1] * adfGeoTransform[5] - adfGeoTransform[2] * adfGeoTransform[4];
-    if (denom == 0.0) {
-        fprintf(stderr, "Warning: Invalid geotransform (denominator is zero)\n");
+    // Get the geotransform (pixel -> world)
+    if (GDALGetGeoTransform(dataset, adfGeoTransform) != CE_None) {
+        fprintf(stderr, "Warning: Dataset has no geotransform\n");
         *pixel_x = 0;
         *pixel_y = 0;
         return;
     }
-    *pixel_x = (int)((adfGeoTransform[5] * (geo_x - adfGeoTransform[0]) - adfGeoTransform[2] * (geo_y - adfGeoTransform[3])) / denom);
-    *pixel_y = (int)((-adfGeoTransform[4] * (geo_x - adfGeoTransform[0]) + adfGeoTransform[1] * (geo_y - adfGeoTransform[3])) / denom);
+    
+    // Invert the geotransform (world -> pixel) using GDAL's built-in function
+    if (!GDALInvGeoTransform(adfGeoTransform, adfInvGeoTransform)) {
+        fprintf(stderr, "Warning: Geotransform is not invertible\n");
+        *pixel_x = 0;
+        *pixel_y = 0;
+        return;
+    }
+    
+    // Apply the inverted transform to convert world coordinates to pixel coordinates
+    double pixel_x_d, pixel_y_d;
+    GDALApplyGeoTransform(adfInvGeoTransform, geo_x, geo_y, &pixel_x_d, &pixel_y_d);
+    
+    *pixel_x = (int)pixel_x_d;
+    *pixel_y = (int)pixel_y_d;
 }
 
 char* create_vrt_xml(const char *source_path, GDALDatasetH source_ds, BoundingBox *bbox) {
