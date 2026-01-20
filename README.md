@@ -19,7 +19,7 @@ make
 ## Usage
 
 ```bash
-./gdal_test <path> <iterations> <seed> <xmin,ymin,xmax,ymax> <mode>
+./gdal_test <path> <iterations> <seed> <xmin,ymin,xmax,ymax> <mode> [--print-pixels]
 ```
 
 ### Arguments
@@ -36,6 +36,10 @@ make
   - `vrt_xml` - Read from VRT dataset created from XML
   - `vrt_api_reuse_source` - VRT API mode but reuse same source
 
+### Options
+
+- **--print-pixels**: Print pixel value for each iteration (disabled by default)
+
 ### Example
 
 ```bash
@@ -44,6 +48,9 @@ make
 
 # Test reading from S3
 ./gdal_test /vsis3/bucket/file.tif 100 42 -180,-90,180,90 vrt_xml
+
+# Test with pixel value printing enabled
+./gdal_test /path/to/file.tif 10 42 -180,-90,180,90 direct --print-pixels
 ```
 
 For more details, see [GDAL_testing.md](GDAL_testing.md).

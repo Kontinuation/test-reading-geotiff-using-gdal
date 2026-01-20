@@ -27,7 +27,7 @@ typedef struct {
 } BoundingBox;
 
 void print_usage(const char *program_name) {
-    fprintf(stderr, "Usage: %s <path> <iterations> <seed> <xmin,ymin,xmax,ymax> <mode>\n", program_name);
+    fprintf(stderr, "Usage: %s <path> <iterations> <seed> <xmin,ymin,xmax,ymax> <mode> [--print-pixels]\n", program_name);
     fprintf(stderr, "\nModes:\n");
     fprintf(stderr, "  direct              - Read directly from GeoTIFF, create new dataset each iteration\n");
     fprintf(stderr, "  direct_reuse_ds     - Read directly from GeoTIFF, reuse same dataset\n");
@@ -35,6 +35,8 @@ void print_usage(const char *program_name) {
     fprintf(stderr, "  vrt_api             - Read from VRT dataset created using VRT API\n");
     fprintf(stderr, "  vrt_xml             - Read from VRT dataset created from XML\n");
     fprintf(stderr, "  vrt_api_reuse_source - VRT API mode but reuse same source\n");
+    fprintf(stderr, "\nOptions:\n");
+    fprintf(stderr, "  --print-pixels      - Print pixel value for each iteration (disabled by default)\n");
 }
 
 Mode parse_mode(const char *mode_str) {
@@ -207,7 +209,7 @@ float read_pixel_from_band(GDALRasterBandH band, GDALDatasetH dataset, double ge
 }
 
 int main(int argc, char *argv[]) {
-    if (argc != 6) {
+    if (argc < 6 || argc > 7) {
         print_usage(argv[0]);
         return 1;
     }
@@ -226,6 +228,18 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Error: Invalid mode '%s'\n", argv[5]);
         print_usage(argv[0]);
         return 1;
+    }
+    
+    // Check for --print-pixels option
+    int print_pixels = 0;
+    if (argc == 7) {
+        if (strcmp(argv[6], "--print-pixels") == 0) {
+            print_pixels = 1;
+        } else {
+            fprintf(stderr, "Error: Unknown option '%s'\n", argv[6]);
+            print_usage(argv[0]);
+            return 1;
+        }
     }
     
     GDALAllRegister();
@@ -348,9 +362,12 @@ int main(int argc, char *argv[]) {
                 return 1;
         }
         
-        // Optionally print pixel value (disabled by default)
-        // printf("Iteration %d: pixel value at (%.2f, %.2f) = %.2f\n", i + 1, random_x, random_y, pixel_value);
-        (void)pixel_value; // Suppress unused variable warning
+        // Optionally print pixel value
+        if (print_pixels) {
+            printf("Iteration %d: pixel value at (%.2f, %.2f) = %.2f\n", i + 1, random_x, random_y, pixel_value);
+        } else {
+            (void)pixel_value; // Suppress unused variable warning when not printing
+        }
     }
     
     // Clean up reused resources
