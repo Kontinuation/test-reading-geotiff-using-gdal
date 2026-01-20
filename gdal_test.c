@@ -65,6 +65,12 @@ void geo_to_pixel(GDALDatasetH dataset, double geo_x, double geo_y, int *pixel_x
     
     // Inverse transform from geo to pixel
     double denom = adfGeoTransform[1] * adfGeoTransform[5] - adfGeoTransform[2] * adfGeoTransform[4];
+    if (denom == 0.0) {
+        fprintf(stderr, "Warning: Invalid geotransform (denominator is zero)\n");
+        *pixel_x = 0;
+        *pixel_y = 0;
+        return;
+    }
     *pixel_x = (int)((adfGeoTransform[5] * (geo_x - adfGeoTransform[0]) - adfGeoTransform[2] * (geo_y - adfGeoTransform[3])) / denom);
     *pixel_y = (int)((-adfGeoTransform[4] * (geo_x - adfGeoTransform[0]) + adfGeoTransform[1] * (geo_y - adfGeoTransform[3])) / denom);
 }
@@ -115,7 +121,7 @@ char* create_vrt_xml(const char *source_path, GDALDatasetH source_ds, BoundingBo
     return xml;
 }
 
-GDALDatasetH create_vrt_from_xml(const char *source_path, GDALDatasetH source_ds, BoundingBox *bbox, GDALDatasetH *reused_source) {
+GDALDatasetH create_vrt_from_xml(const char *source_path, GDALDatasetH source_ds, BoundingBox *bbox) {
     double adfGeoTransform[6];
     GDALGetGeoTransform(source_ds, adfGeoTransform);
     
@@ -284,7 +290,12 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "Error: Failed to open source dataset '%s'\n", path);
                     return 1;
                 }
-                GDALDatasetH vrt_ds = create_vrt_from_xml(path, source_ds, &bbox, NULL);
+                GDALDatasetH vrt_ds = create_vrt_from_xml(path, source_ds, &bbox);
+                if (!vrt_ds) {
+                    fprintf(stderr, "Error: Failed to create VRT dataset\n");
+                    GDALClose(source_ds);
+                    return 1;
+                }
                 pixel_value = read_pixel_from_dataset(vrt_ds, random_x, random_y);
                 GDALClose(vrt_ds);
                 GDALClose(source_ds);
@@ -300,6 +311,11 @@ int main(int argc, char *argv[]) {
                 char *vrt_xml = create_vrt_xml(path, source_ds, &bbox);
                 GDALDatasetH vrt_ds = GDALOpen(vrt_xml, GA_ReadOnly);
                 free(vrt_xml);
+                if (!vrt_ds) {
+                    fprintf(stderr, "Error: Failed to create VRT dataset\n");
+                    GDALClose(source_ds);
+                    return 1;
+                }
                 pixel_value = read_pixel_from_dataset(vrt_ds, random_x, random_y);
                 GDALClose(vrt_ds);
                 GDALClose(source_ds);
@@ -314,15 +330,27 @@ int main(int argc, char *argv[]) {
                         return 1;
                     }
                 }
-                GDALDatasetH vrt_ds = create_vrt_from_xml(path, reused_vrt_source, &bbox, &reused_vrt_source);
+                GDALDatasetH vrt_ds = create_vrt_from_xml(path, reused_vrt_source, &bbox);
+                if (!vrt_ds) {
+                    fprintf(stderr, "Error: Failed to create VRT dataset\n");
+                    GDALClose(reused_vrt_source);
+                    reused_vrt_source = NULL;
+                    return 1;
+                }
                 pixel_value = read_pixel_from_dataset(vrt_ds, random_x, random_y);
                 GDALClose(vrt_ds);
                 break;
             }
+            
+            case MODE_INVALID:
+                // This should never happen as we check for MODE_INVALID before the loop
+                fprintf(stderr, "Error: Invalid mode\n");
+                return 1;
         }
         
         // Optionally print pixel value (disabled by default)
         // printf("Iteration %d: pixel value at (%.2f, %.2f) = %.2f\n", i + 1, random_x, random_y, pixel_value);
+        (void)pixel_value; // Suppress unused variable warning
     }
     
     // Clean up reused resources
