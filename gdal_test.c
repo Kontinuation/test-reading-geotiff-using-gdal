@@ -7,13 +7,16 @@
 #include "cpl_conv.h"
 #include "cpl_string.h"
 
+#define VRT_XML_BUFFER_SIZE 4096
+
 typedef enum {
     MODE_DIRECT,
     MODE_DIRECT_REUSE_DS,
     MODE_DIRECT_REUSE_BAND,
     MODE_VRT_API,
     MODE_VRT_XML,
-    MODE_VRT_API_REUSE_SOURCE
+    MODE_VRT_API_REUSE_SOURCE,
+    MODE_INVALID
 } Mode;
 
 typedef struct {
@@ -48,7 +51,7 @@ Mode parse_mode(const char *mode_str) {
     } else if (strcmp(mode_str, "vrt_api_reuse_source") == 0) {
         return MODE_VRT_API_REUSE_SOURCE;
     } else {
-        return -1;
+        return MODE_INVALID;
     }
 }
 
@@ -88,8 +91,8 @@ char* create_vrt_xml(const char *source_path, GDALDatasetH source_ds, BoundingBo
     GDALDataType datatype = GDALGetRasterDataType(band);
     const char *datatype_name = GDALGetDataTypeName(datatype);
     
-    char *xml = (char*)malloc(4096);
-    snprintf(xml, 4096,
+    char *xml = (char*)malloc(VRT_XML_BUFFER_SIZE);
+    snprintf(xml, VRT_XML_BUFFER_SIZE,
         "<VRTDataset rasterXSize=\"%d\" rasterYSize=\"%d\">\n"
         "  <GeoTransform>%.15f, %.15f, %.15f, %.15f, %.15f, %.15f</GeoTransform>\n"
         "  <VRTRasterBand dataType=\"%s\" band=\"1\">\n"
@@ -112,7 +115,7 @@ char* create_vrt_xml(const char *source_path, GDALDatasetH source_ds, BoundingBo
     return xml;
 }
 
-GDALDatasetH create_vrt_api(const char *source_path, GDALDatasetH source_ds, BoundingBox *bbox, GDALDatasetH *reused_source) {
+GDALDatasetH create_vrt_from_xml(const char *source_path, GDALDatasetH source_ds, BoundingBox *bbox, GDALDatasetH *reused_source) {
     double adfGeoTransform[6];
     GDALGetGeoTransform(source_ds, adfGeoTransform);
     
@@ -133,11 +136,11 @@ GDALDatasetH create_vrt_api(const char *source_path, GDALDatasetH source_ds, Bou
     GDALRasterBandH source_band = GDALGetRasterBand(source_ds, 1);
     GDALDataType datatype = GDALGetRasterDataType(source_band);
     
-    // Create VRT XML and open it instead of using VRT API
-    char vrt_xml[4096];
+    // Create VRT XML and open it
+    char vrt_xml[VRT_XML_BUFFER_SIZE];
     const char *datatype_name = GDALGetDataTypeName(datatype);
     
-    snprintf(vrt_xml, 4096,
+    snprintf(vrt_xml, VRT_XML_BUFFER_SIZE,
         "<VRTDataset rasterXSize=\"%d\" rasterYSize=\"%d\">\n"
         "  <GeoTransform>%.15f, %.15f, %.15f, %.15f, %.15f, %.15f</GeoTransform>\n"
         "  <VRTRasterBand dataType=\"%s\" band=\"1\">\n"
@@ -213,7 +216,7 @@ int main(int argc, char *argv[]) {
     }
     
     Mode mode = parse_mode(argv[5]);
-    if (mode == -1) {
+    if (mode == MODE_INVALID) {
         fprintf(stderr, "Error: Invalid mode '%s'\n", argv[5]);
         print_usage(argv[0]);
         return 1;
@@ -281,7 +284,7 @@ int main(int argc, char *argv[]) {
                     fprintf(stderr, "Error: Failed to open source dataset '%s'\n", path);
                     return 1;
                 }
-                GDALDatasetH vrt_ds = create_vrt_api(path, source_ds, &bbox, NULL);
+                GDALDatasetH vrt_ds = create_vrt_from_xml(path, source_ds, &bbox, NULL);
                 pixel_value = read_pixel_from_dataset(vrt_ds, random_x, random_y);
                 GDALClose(vrt_ds);
                 GDALClose(source_ds);
@@ -311,7 +314,7 @@ int main(int argc, char *argv[]) {
                         return 1;
                     }
                 }
-                GDALDatasetH vrt_ds = create_vrt_api(path, reused_vrt_source, &bbox, &reused_vrt_source);
+                GDALDatasetH vrt_ds = create_vrt_from_xml(path, reused_vrt_source, &bbox, &reused_vrt_source);
                 pixel_value = read_pixel_from_dataset(vrt_ds, random_x, random_y);
                 GDALClose(vrt_ds);
                 break;
