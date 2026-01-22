@@ -12,6 +12,24 @@
 #define VRT_XML_BUFFER_SIZE 4096
 static inline double make_nan() { return NAN; }
 
+static void print_cache_sizes(void) {
+  const GIntBig block_cache_bytes = GDALGetCacheMax64();
+  printf("GDAL block cache max: %lld bytes (%.2f MiB)\n",
+         (long long)block_cache_bytes,
+         (double)block_cache_bytes / (1024.0 * 1024.0));
+
+  const char *vsicurl_cache_str =
+      CPLGetConfigOption("CPL_VSIL_CURL_CACHE_SIZE", NULL);
+  if (vsicurl_cache_str && vsicurl_cache_str[0] != '\0') {
+    const GIntBig vsicurl_cache_bytes = CPLAtoGIntBig(vsicurl_cache_str);
+    printf("VSICURL cache size: %lld bytes (%.2f MiB)\n",
+           (long long)vsicurl_cache_bytes,
+           (double)vsicurl_cache_bytes / (1024.0 * 1024.0));
+  } else {
+    printf("VSICURL cache size: (unset, GDAL default applies)\n");
+  }
+}
+
 typedef enum {
   MODE_DIRECT,
   MODE_DIRECT_REUSE_DS,
@@ -345,6 +363,8 @@ int main(int argc, char *argv[]) {
 
   GDALAllRegister();
 
+  print_cache_sizes();
+
   printf("Running %d iterations in mode '%s'\n", iterations, argv[5]);
   printf("Bounding box: (%.2f, %.2f) - (%.2f, %.2f)\n", bbox.xmin, bbox.ymin,
          bbox.xmax, bbox.ymax);
@@ -513,8 +533,8 @@ int main(int argc, char *argv[]) {
     case MODE_VRT_API_REUSE_DATASET: {
       int is_nodata = 0;
       double nodata_value = make_nan();
-      pixel_value = read_pixel_from_dataset(
-          reused_vrt_ds, random_x, random_y, &is_nodata, &nodata_value);
+      pixel_value = read_pixel_from_dataset(reused_vrt_ds, random_x, random_y,
+                                            &is_nodata, &nodata_value);
       if (print_pixels) {
         if (is_nodata) {
           printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
