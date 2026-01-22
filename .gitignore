@@ -59,6 +59,9 @@ compile_commands.json
 
 # GDAL test binary
 gdal_test
+gdal_vrt_lifetime_test
+gdal_vrt_lifetime_test_asan
+
 
 # Profiling results
 profiles
