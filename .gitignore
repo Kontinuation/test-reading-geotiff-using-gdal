@@ -56,3 +56,6 @@ dkms.conf
 
 # GDAL test binary
 gdal_test
+
+# Profiling results
+profiles
