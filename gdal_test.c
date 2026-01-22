@@ -407,7 +407,7 @@ int main(int argc, char *argv[]) {
         if (is_nodata) {
           printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
                  "nodata=%g)\n",
-                 i + 1, random_x, random_y, (double)pixel_value);
+                 i + 1, random_x, random_y, (double)pixel_value, nodata_value);
         }
       }
       GDALClose(ds);
@@ -423,7 +423,7 @@ int main(int argc, char *argv[]) {
         if (is_nodata) {
           printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
                  "nodata=%g)\n",
-                 i + 1, random_x, random_y, (double)pixel_value);
+                 i + 1, random_x, random_y, (double)pixel_value, nodata_value);
         }
       }
       break;
@@ -438,7 +438,7 @@ int main(int argc, char *argv[]) {
         if (is_nodata) {
           printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
                  "nodata=%g)\n",
-                 i + 1, random_x, random_y, (double)pixel_value);
+                 i + 1, random_x, random_y, (double)pixel_value, nodata_value);
         }
       }
       break;
@@ -464,7 +464,7 @@ int main(int argc, char *argv[]) {
         if (is_nodata) {
           printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
                  "nodata=%g)\n",
-                 i + 1, random_x, random_y, (double)pixel_value);
+                 i + 1, random_x, random_y, (double)pixel_value, nodata_value);
         }
       }
       GDALClose(vrt_ds);
@@ -500,28 +500,28 @@ int main(int argc, char *argv[]) {
                                             &is_nodata, &nodata_value);
       if (print_pixels) {
         if (is_nodata) {
-        case MODE_VRT_API_REUSE_DATASET: {
-          int is_nodata = 0;
-          double nodata_value = make_nan();
-          pixel_value = read_pixel_from_dataset(
-              reused_vrt_ds, random_x, random_y, &is_nodata, &nodata_value);
-          if (print_pixels) {
-            if (is_nodata) {
-              printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
-                     "nodata=%g)\n",
-                     i + 1, random_x, random_y, (double)pixel_value);
-            }
-          }
-          break;
-        }
-
           printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
                  "nodata=%g)\n",
-                 i + 1, random_x, random_y, (double)pixel_value);
+                 i + 1, random_x, random_y, (double)pixel_value, nodata_value);
         }
       }
       GDALClose(vrt_ds);
       GDALClose(source_ds);
+      break;
+    }
+
+    case MODE_VRT_API_REUSE_DATASET: {
+      int is_nodata = 0;
+      double nodata_value = make_nan();
+      pixel_value = read_pixel_from_dataset(
+          reused_vrt_ds, random_x, random_y, &is_nodata, &nodata_value);
+      if (print_pixels) {
+        if (is_nodata) {
+          printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
+                 "nodata=%g)\n",
+                 i + 1, random_x, random_y, (double)pixel_value, nodata_value);
+        }
+      }
       break;
     }
 
@@ -551,7 +551,7 @@ int main(int argc, char *argv[]) {
         if (is_nodata) {
           printf("Iteration %d: pixel at (%.2f, %.2f) is NODATA (pixel=%g, "
                  "nodata=%g)\n",
-                 i + 1, random_x, random_y, (double)pixel_value);
+                 i + 1, random_x, random_y, (double)pixel_value, nodata_value);
         }
       }
       GDALClose(vrt_ds);
